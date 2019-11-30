@@ -2,18 +2,28 @@
 // @name        BilibiliExp
 // @namespace   BilibiliExp
 // @match       *://www.bilibili.com/video/*
-// @version     1.0
+// @match       *://link.acg.tv/forum.php*
+// @version     1.1
 // @author      Dreace
 // @license     GPL-3.0
 // @description B 站经验助手，自动投币视频、模拟移动端分享、经验获取统计、升级时间估计
 // @grant       GM.xmlHttpRequest
+// @grant       GM_setValue
+// @grant       GM_getValue
+// @grant       GM_deleteValue
 // @grant       unsafeWindow
-// @require https://cdn.bootcss.com/jquery/3.4.1/jquery.min.js
-// @require https://static.hdslb.com/js/md5.js
+// @require     https://cdn.bootcss.com/jquery/3.4.1/jquery.min.js
+// @require     https://static.hdslb.com/js/md5.js
 // ==/UserScript==
 // file:///C:/WorkSpace/JavaScript/BilibiliExp/main.js
 (function () {
     'use strict';
+    if (location.href.match('link.acg.tv/forum.php') && location.href.match('access_key') && window.opener) {
+        window.stop()
+        document.children[0].innerHTML = '<title>BilibiliExp - 获取 Access Key</title><meta charset="UTF-8" name="viewport" content="width=device-width">正在跳转……'
+        window.opener.postMessage('get_access_key: ' + location.href, '*')
+        return;
+    }
     const coinUrl = "https://api.bilibili.com/x/web-interface/nav?build=0&mobi_app=web"
     const addCoinUrl = "https://api.bilibili.com/x/web-interface/coin/add"
     const shareUrl = "https://app.bilibili.com/x/v2/view/share/complete"
@@ -26,47 +36,27 @@
     try {
         aid = unsafeWindow.vd ? unsafeWindow.vd.aid : unsafeWindow.aid
     } catch (error) {
-        console.log("aid 获取失败")
+        console.error("[BilibiliExp] aid 获取失败")
         return
     }
-    function addCoin() {
-        return biliAjax({
-            url: addCoinUrl,
-            type: 'POST',
-            dataType: 'json',
-            data: {
-                aid: aid,
-                multiply: "1",
-                select_like: 0,
-                cross_domain: true,
-                csrf: bili_jct
-            },
-        })
+    let access_key = GM_getValue('access_key')
+    if (access_key) {
+        checkKeyStatus(access_key)
+    } else {
+        getKey()
     }
     if (aid) {
         gmAjax({
             url: rewardUrl,
-            methon: 'GET',
+            method: 'GET',
         }).then((res) => {
             if (res.code == 0) {
                 expToday = 50 - res.data.coins_av
-            } else {
-                console.log("等级信息获取失败");
-                return
-            }
-        })
-        gmAjax({
-            url: rewardUrl,
-            methon: 'GET',
-        }).then((res) => {
-            if (res.code == 0) {
-                expToday = 50 - res.data.coins_av
-                if (!res.data.share_av) {
+                if (!res.data.share_av && access_key) {
                     let shareData = {
-                        access_key: bili_jct,
+                        access_key: access_key.key,
                         actionKey: "appkey",
                         aid: aid,
-                        appkey: "27eb53fc9058f8c3",
                         build: "8960",
                         device: "phone",
                         epid: "",
@@ -77,38 +67,32 @@
                         share_channel: "qq",
                         share_trace_id: hex_md5(new Date()),
                         statistics: "%7B%22appId%22%3A1%2C%22version%22%3A%225.50.1%22%2C%22abtest%22%3A%22890%22%2C%22platform%22%3A1%7D",
-                        ts: new Date().getTime(),
                     }
                     let signed = get_sign(shareData, "c2ed53a74eeefe3cf99fbd01d8c9c375")
-                    GM.xmlHttpRequest({
+                    gmAjax({
                         method: "POST",
-                        url: shareUrl,
+                        url: shareUrlPre,
                         data: signed.data + "&sign=" + signed.sign,
                         headers: {
                             "Content-Type": "application/x-www-form-urlencoded"
-                        },
-                        onload: function (response) {
-                            let res = JSON.parse(response.responseText)
-                            if (res.code == 0) {
-                                GM.xmlHttpRequest({
-                                    method: "POST",
-                                    url: shareUrlPre,
-                                    data: signed.data + "&sign=" + signed.sign,
-                                    headers: {
-                                        "Content-Type": "application/x-www-form-urlencoded"
-                                    },
-                                    onload: function (response) {
-                                        let res = JSON.parse(response.responseText)
-                                        console.log(res.data.toast)
-                                    }
-                                });
-                            }
                         }
-                    });
-
+                    }).then((res) => {
+                        if (res.code == 0) {
+                            return gmAjax({
+                                method: "POST",
+                                url: shareUrl,
+                                data: signed.data + "&sign=" + signed.sign,
+                                headers: {
+                                    "Content-Type": "application/x-www-form-urlencoded"
+                                }
+                            })
+                        }
+                    }).then((res) => {
+                        console.log("[BilibiliExp] " + res.data.toast)
+                    })
                 }
             } else {
-                console.log("等级信息获取失败");
+                console.error("[BilibiliExp] 等级信息获取失败");
             }
         }).then(() => {
             return biliAjax({
@@ -118,12 +102,12 @@
             })
         }).then((res) => {
             totalCoin = res.data.money
-            console.log("当前硬币 " + totalCoin + " 个")
+            console.log("[BilibiliExp] 当前硬币 " + totalCoin + " 个")
             if (totalCoin < 50) {
-                console.log("硬币小于 50,暂不投币")
+                console.log("[BilibiliExp] 硬币小于 50,暂不投币")
             } else {
                 if (expToday == 0) {
-                    console.log("今日已获取全部经验")
+                    console.log("[BilibiliExp] 今日已获取全部经验")
                 }
                 return new Promise(function (resolve, reject) {
                     setTimeout(() => {
@@ -133,12 +117,12 @@
             }
         }).then(() => {
             if (totalCoin >= 50 && expToday > 0) {
-                console.log("准备投币")
+                console.log("[BilibiliExp] 准备投币")
                 return addCoin()
             }
         }).then((res) => {
             if (res && res.code == 0) {
-                console.log("投了一个币")
+                console.log("[BilibiliExp] 投了一个币")
                 expToday -= 10
                 if (expToday > 0) {
                     return addCoin()
@@ -146,11 +130,11 @@
             }
         }).then((res) => {
             if (res && res.code == 0) {
-                console.log("又投了一个币")
+                console.log("[BilibiliExp] 又投了一个币")
             }
             return gmAjax({
                 url: rewardUrl,
-                methon: 'GET',
+                method: 'GET',
             })
         }).then((res) => {
             if (res.code == 0) {
@@ -223,11 +207,25 @@
             }
         })
     }
+    function addCoin() {
+        return biliAjax({
+            url: addCoinUrl,
+            type: 'POST',
+            dataType: 'json',
+            data: {
+                aid: aid,
+                multiply: "1",
+                select_like: 0,
+                cross_domain: true,
+                csrf: bili_jct
+            },
+        })
+    }
 })();
 function gmAjax(opt) {
     return new Promise((resolve, reject) => {
         GM.xmlHttpRequest({
-            method: opt.methon,
+            method: opt.method,
             url: opt.url,
             data: opt.data ? opt.data : "",
             headers: opt.headers ? opt.headers : "",
@@ -265,6 +263,9 @@ function biliAjax(opt) {
     return defer
 }
 function get_sign(params, key) {
+    params.appkey = "27eb53fc9058f8c3"
+    params.build = 8960
+    params.ts = Date.now()
     var s_keys = []
     for (var i in params) {
         s_keys.push(i)
@@ -274,7 +275,12 @@ function get_sign(params, key) {
     for (var i = 0; i < s_keys.length; i++) {
         data += (data ? "&" : "") + s_keys[i] + "=" + params[s_keys[i]]
     }
-    return { sign: hex_md5(data + key), data: data }
+    let sign = hex_md5(data + key)
+    return {
+        sign: sign,
+        data: data,
+        signedData: data + "&sign=" + sign
+    }
 }
 function getCookie(cname) {
     var name = cname + "=";
@@ -284,4 +290,79 @@ function getCookie(cname) {
         if (c.indexOf(name) == 0) return c.substring(name.length, c.length);
     }
     return "";
+}
+function checkKeyStatus(access_key) {
+    if (access_key.time < Date.now() - 2 * 24 * 3600000) {
+        let oauthData = {
+            access_key: access_key.key
+        }
+        let signed = get_sign(oauthData, "c2ed53a74eeefe3cf99fbd01d8c9c375")
+        oauthData.sign = signed.sign
+        biliAjax({
+            url: "https://passport.bilibili.com/api/oauth",
+            type: 'GET',
+            dataType: 'json',
+            data: oauthData
+        }).then((res) => {
+            if (res.code == 0) {
+                let expire = data.access_info.expires * 1e3
+                access_key.time = Date.now()
+                GM_setValue("access_key", access_key)
+                if (expire - 5 * 24 * 360000 < Date.now()) {
+                    return biliAjax({
+                        url: "https://passport.bilibili.com/api/login/renewToken?" + signed.signedData,
+                        type: 'GET',
+                        dataType: 'json',
+                        data: oauthData
+                    })
+                }
+            }
+        }).then((res) => {
+            if (res && (res.code == -101 || res.code == -658)) {
+                GM_deleteValue('access_key');
+                console.warn('[BilibiliExp] access_key 已过期');
+                getKey()
+            }
+        })
+    }
+}
+
+window.addEventListener('message', function (e) {
+    if (typeof e.data == 'string' && e.data.split(':')[0] == "get_access_key") {
+        access_key_window.close();
+        let url = e.data.split(': ')[1];
+        var key = url.match(/access_key=([a-f0-9]{32})/);
+        if (key) {
+            let access_key = {
+                key: key[1],
+                time: Date.now()
+            }
+            GM_setValue('access_key', access_key);
+            console.log('[BilibiliExp] 成功获取 access_key: ' + access_key.key);
+        }
+    }
+})
+function getKey() {
+    const access_key_window = window.open('about:blank');
+    access_key_window.document.title = 'BilibiliExp - 获取 Access Key';
+    access_key_window.document.body.innerHTML = '<meta charset="UTF-8" name="viewport" content="width=device-width">[BilibiliExp] 正在获取 Access Key';
+    window.access_key_window = access_key_window;
+    biliAjax({
+        url: "https://passport.bilibili.com/login/app/third",
+        type: 'GET',
+        dataType: 'json',
+        data: {
+            "appkey": "27eb53fc9058f8c3",
+            "api": "http://link.acg.tv/forum.php",
+            "sign": "67ec798004373253d60114caaad89a8c"
+        }
+    }).then((res) => {
+        if (res.data.has_login) {
+            access_key_window.document.body.innerHTML = '<meta charset="UTF-8" name="viewport" content="width=device-width">[BilibiliExp] 正在跳转';
+            access_key_window.location.href = res.data.confirm_uri;
+        } else {
+            access_key_window.close()
+            console.error('[BilibiliExp] 必须登录 B 站才能获取 access_key')
+        }
+    })
 }
