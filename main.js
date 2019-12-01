@@ -3,7 +3,7 @@
 // @namespace   BilibiliExp
 // @match       *://www.bilibili.com/video/*
 // @match       *://link.acg.tv/forum.php*
-// @version     1.1.1
+// @version     1.2.0
 // @author      Dreace
 // @license     GPL-3.0
 // @description B 站经验助手，自动投币视频、模拟移动端分享、经验获取统计、升级时间估计
@@ -13,7 +13,7 @@
 // @grant       GM_deleteValue
 // @grant       unsafeWindow
 // @require     https://cdn.bootcss.com/jquery/3.4.1/jquery.min.js
-// @require     https://static.hdslb.com/js/md5.js
+// @require     https://cdn.bootcss.com/blueimp-md5/1.1.0/js/md5.min.js
 // ==/UserScript==
 // file:///C:/WorkSpace/JavaScript/BilibiliExp/main.js
 
@@ -65,7 +65,7 @@ if (aid) {
                     platform: "ios",
                     season_id: "",
                     share_channel: "qq",
-                    share_trace_id: hex_md5(new Date()),
+                    share_trace_id: md5(new Date()),
                     statistics: "%7B%22appId%22%3A1%2C%22version%22%3A%225.50.1%22%2C%22abtest%22%3A%22890%22%2C%22platform%22%3A1%7D"
                 };
                 var signed = get_sign(shareData, "c2ed53a74eeefe3cf99fbd01d8c9c375");
@@ -266,7 +266,7 @@ function get_sign(params, key) {
     for (var i = 0; i < s_keys.length; i++) {
         data += (data ? "&" : "") + s_keys[i] + "=" + params[s_keys[i]];
     }
-    var sign = hex_md5(data + key);
+    var sign = md5(data + key);
     return {
         sign: sign,
         data: data,
