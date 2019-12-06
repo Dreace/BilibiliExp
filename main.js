@@ -3,7 +3,7 @@
 // @namespace   BilibiliExp
 // @match       *://www.bilibili.com/video/*
 // @match       *://link.acg.tv/forum.php*
-// @version     1.2.0
+// @version     1.2.1
 // @author      Dreace
 // @license     GPL-3.0
 // @description B 站经验助手，自动投币视频、模拟移动端分享、经验获取统计、升级时间估计
@@ -295,12 +295,12 @@ function checkKeyStatus(access_key) {
             data: oauthData
         }).then(function (res) {
             if (res.code == 0) {
-                var expire = data.access_info.expires * 1e3;
+                var expire = res.data.access_info.expires * 1e3;
                 access_key.time = Date.now();
                 GM_setValue("access_key", access_key);
                 if (expire - 5 * 24 * 360000 < Date.now()) {
                     return biliAjax({
-                        url: "https://passport.bilibili.com/api/login/renewToken?" + signed.signedData,
+                        url: "https://passport.bilibili.com/api/login/renewToken",
                         type: 'GET',
                         dataType: 'json',
                         data: oauthData
