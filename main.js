@@ -3,7 +3,7 @@
 // @namespace   BilibiliExp
 // @match       *://www.bilibili.com/video/*
 // @match       *://link.acg.tv/forum.php*
-// @version     1.2.1
+// @version     1.2.2
 // @author      Dreace
 // @license     GPL-3.0
 // @description B 站经验助手，自动投币视频、模拟移动端分享、经验获取统计、升级时间估计
@@ -57,16 +57,16 @@ if (aid) {
                     access_key: access_key.key,
                     actionKey: "appkey",
                     aid: aid,
-                    build: "8960",
+                    build: "9180",
                     device: "phone",
                     epid: "",
                     from: "711",
                     mobi_app: "iphone",
                     platform: "ios",
                     season_id: "",
-                    share_channel: "qq",
+                    share_channel: "wechat",
                     share_trace_id: md5(new Date()),
-                    statistics: "%7B%22appId%22%3A1%2C%22version%22%3A%225.50.1%22%2C%22abtest%22%3A%22890%22%2C%22platform%22%3A1%7D"
+                    statistics: "%7B%22appId%22%3A1%2C%22version%22%3A%225.53.2%22%2C%22abtest%22%3A%22890_507_510%22%2C%22platform%22%3A1%7D"
                 };
                 var signed = get_sign(shareData, "c2ed53a74eeefe3cf99fbd01d8c9c375");
                 gmAjax({
@@ -284,36 +284,9 @@ function getCookie(cname) {
     return "";
 }
 function checkKeyStatus(access_key) {
-    if (access_key.time < Date.now() - 2 * 24 * 3600000) {
-        var oauthData = { access_key: access_key.key };
-        var signed = get_sign(oauthData, "c2ed53a74eeefe3cf99fbd01d8c9c375");
-        oauthData.sign = signed.sign;
-        biliAjax({
-            url: "https://passport.bilibili.com/api/oauth",
-            type: 'GET',
-            dataType: 'json',
-            data: oauthData
-        }).then(function (res) {
-            if (res.code == 0) {
-                var expire = res.data.access_info.expires * 1e3;
-                access_key.time = Date.now();
-                GM_setValue("access_key", access_key);
-                if (expire - 5 * 24 * 360000 < Date.now()) {
-                    return biliAjax({
-                        url: "https://passport.bilibili.com/api/login/renewToken",
-                        type: 'GET',
-                        dataType: 'json',
-                        data: oauthData
-                    });
-                }
-            }
-        }).then(function (res) {
-            if (res && (res.code == -101 || res.code == -658)) {
-                GM_deleteValue('access_key');
-                console.warn('[BilibiliExp] access_key 已过期');
-                getKey();
-            }
-        });
+    if (Date.now() - access_key.time > 25 * 24 * 3600000) {
+        console.log('[BilibiliExp] access_key 即将过期');
+        getKey()
     }
 }
 window.addEventListener('message', function (e) {
