@@ -3,7 +3,7 @@
 // @namespace   BilibiliExp
 // @match       *://www.bilibili.com/video/*
 // @match       *://link.acg.tv/forum.php*
-// @version     1.2.2
+// @version     1.2.3
 // @author      Dreace
 // @license     GPL-3.0
 // @description B 站经验助手，自动投币视频、模拟移动端分享、经验获取统计、升级时间估计
@@ -105,12 +105,12 @@ if (aid) {
             if (expToday == 0) {
                 console.log("[BilibiliExp] 今日已获取全部经验");
             }
-            return new Promise(function (resolve, reject) {
-                setTimeout(function () {
-                    resolve();
-                }, 10000);
-            });
         }
+        return new Promise(function (resolve, reject) {
+            setTimeout(function () {
+                resolve();
+            }, 10000);
+        });
     }).then(function () {
         if (totalCoin >= 50 && expToday > 0) {
             console.log("[BilibiliExp] 准备投币");
