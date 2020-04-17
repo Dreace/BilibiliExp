@@ -3,7 +3,7 @@
 // @namespace   BilibiliExp
 // @match       *://www.bilibili.com/video/*
 // @match       *://link.acg.tv/forum.php*
-// @version     1.2.3
+// @version     1.2.4
 // @author      Dreace
 // @license     GPL-3.0
 // @description B 站经验助手，自动投币视频、模拟移动端分享、经验获取统计、升级时间估计
@@ -15,7 +15,6 @@
 // @require     https://cdn.bootcss.com/jquery/3.4.1/jquery.min.js
 // @require     https://cdn.bootcss.com/blueimp-md5/1.1.0/js/md5.min.js
 // ==/UserScript==
-// file:///C:/WorkSpace/JavaScript/BilibiliExp/main.js
 
 'use strict';
 if (location.href.match('link.acg.tv/forum.php') && location.href.match('access_key') && window.opener) {
@@ -32,6 +31,7 @@ var rewardUrl = "https://account.bilibili.com/home/reward";
 var totalCoin = 0;
 var expToday = 0;
 var aid = "";
+var isLevel6 = false;
 var bili_jct = getCookie("bili_jct");
 try {
     aid = unsafeWindow.vd ? unsafeWindow.vd.aid : unsafeWindow.aid;
@@ -50,7 +50,13 @@ if (aid) {
         url: rewardUrl,
         method: 'GET'
     }).then(function (res) {
+        console.log(res);
         if (res.code == 0) {
+            isLevel6 = res.data.level_info.current_level === 6;
+            if (isLevel6) {
+                console.log("[BilibiliExp] 已达到六级");
+                return empty();
+            }
             expToday = 50 - res.data.coins_av;
             if (!res.data.share_av && access_key) {
                 var shareData = {
@@ -89,6 +95,7 @@ if (aid) {
             }
         } else {
             console.error("[BilibiliExp] 等级信息获取失败");
+            reject("等级信息获取失败");
         }
     }).then(function () {
         return biliAjax({
@@ -99,6 +106,9 @@ if (aid) {
     }).then(function (res) {
         totalCoin = res.data.money;
         console.log("[BilibiliExp] 当前硬币 " + totalCoin + " 个");
+        if (isLevel6) {
+            return wait(5000);
+        }
         if (totalCoin < 50) {
             console.log("[BilibiliExp] 硬币小于 50,暂不投币");
         } else {
@@ -106,17 +116,19 @@ if (aid) {
                 console.log("[BilibiliExp] 今日已获取全部经验");
             }
         }
-        return new Promise(function (resolve, reject) {
-            setTimeout(function () {
-                resolve();
-            }, 10000);
-        });
+        return wait(5000);
     }).then(function () {
+        if (isLevel6) {
+            return empty();
+        }
         if (totalCoin >= 50 && expToday > 0) {
             console.log("[BilibiliExp] 准备投币");
             return addCoin();
         }
     }).then(function (res) {
+        if (isLevel6) {
+            return empty();
+        }
         if (res && res.code == 0) {
             console.log("[BilibiliExp] 投了一个币");
             expToday -= 10;
@@ -125,6 +137,12 @@ if (aid) {
             }
         }
     }).then(function (res) {
+        if (isLevel6) {
+            return gmAjax({
+                url: rewardUrl,
+                method: 'GET'
+            });
+        }
         if (res && res.code == 0) {
             console.log("[BilibiliExp] 又投了一个币");
         }
@@ -176,12 +194,22 @@ if (aid) {
                 text: (total + "/65"),
                 className: "icon-total"
             });
-            spansData.push({
-                ok: false,
-                name: ("最快到 " + (rewardInfo.level_info.current_level + 1) + " 级剩余天数"),
-                text: (Math.ceil((rewardInfo.level_info.next_exp - rewardInfo.level_info.current_exp) / 65) + " 天"),
-                className: "icon-day"
-            });
+            if (isLevel6) {
+                spansData.push({
+                    ok: true,
+                    name: "一个成熟的六级大佬",
+                    text: "六级辣",
+                    className: "icon-day"
+                });
+            } else {
+                spansData.push({
+                    ok: false,
+                    name: ("最快到 " + (rewardInfo.level_info.current_level + 1) + " 级剩余天数"),
+                    text: (Math.ceil((rewardInfo.level_info.next_exp - rewardInfo.level_info.current_exp) / 65) + " 天"),
+                    className: "icon-day"
+                });
+            }
+
             var bar = document.getElementById("arc_toolbar_report");
             bar.style.height = "60px";
             var ops = document.createElement('div');
@@ -231,6 +259,18 @@ function gmAjax(opt) {
                 reject(error);
             }
         });
+    });
+}
+function wait(n){
+    return new Promise(function (resolve, reject) {
+        setTimeout(function () {
+            resolve();
+        }, n);
+    });
+}
+function empty() {
+    return new Promise(function (resolve, reject) {
+        resolve();
     });
 }
 function request(opt) {
