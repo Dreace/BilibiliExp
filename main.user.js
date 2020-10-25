@@ -3,7 +3,7 @@
 // @namespace   BilibiliExp
 // @match       *://www.bilibili.com/video/*
 // @match       *://www.mcbbs.net/template/mcbbs/image/special_photo_bg.png*
-// @version     1.3.1
+// @version     1.3.2
 // @author      Dreace
 // @license     GPL-3.0
 // @description B 站经验助手，自动投币视频、模拟移动端分享、经验获取统计、升级时间估计
@@ -69,7 +69,8 @@ if (access_key) {
       return;
     }
     expToday = 50 - res.data.coins_av;
-    if (!res.data.share_av && access_key) {
+    // 暂时移除
+    if (false) {
       var shareData = {
         access_key: access_key.key,
         actionKey: "appkey",
