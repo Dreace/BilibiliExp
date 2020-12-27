@@ -3,7 +3,7 @@
 // @namespace   BilibiliExp
 // @match       *://www.bilibili.com/video/*
 // @match       *://www.mcbbs.net/template/mcbbs/image/special_photo_bg.png*
-// @version     1.3.2
+// @version     1.4.0
 // @author      Dreace
 // @license     GPL-3.0
 // @description B 站经验助手，自动投币视频、模拟移动端分享、经验获取统计、升级时间估计
@@ -51,7 +51,27 @@ if (access_key) {
 } else {
   getKey();
 }
-(async (_) => {
+var first = true;
+(function (open) {
+  XMLHttpRequest.prototype.open = function () {
+    this.addEventListener(
+      "readystatechange",
+      function () {
+        if (
+          this.responseURL.indexOf("api.bilibili.com/x/v2/dm/web/view") >= 0 &&
+          first
+        ) {
+          first = false;
+          main();
+        }
+      },
+      false
+    );
+    open.apply(this, arguments);
+  };
+})(XMLHttpRequest.prototype.open);
+
+async function main() {
   while (document.querySelector(".dm").innerHTML.indexOf("-") !== -1) {
     await wait(1000);
   }
@@ -140,7 +160,8 @@ if (access_key) {
   }
   await wait(3000);
   injectHTML();
-})();
+}
+
 async function injectHTML() {
   var res = await gmAjax({
     url: rewardUrl,
